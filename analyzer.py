@@ -8,12 +8,12 @@ def analyze_state(sample, voltage_history, latency_history):
     risk = 0
     reasons = []
 
-    if voltage < 3.4:
+    if voltage < 3.05:
         risk += 4
-        reasons.append("Low voltage detected")
-    elif voltage < 3.7:
+        reasons.append("Critical voltage droop detected")
+    elif voltage < 3.15:
         risk += 2
-        reasons.append("Voltage droop observed")
+        reasons.append("Voltage below nominal range")
 
     if latency > 60:
         risk += 4

@@ -53,7 +53,7 @@ st.markdown("""
     }
     .small-value {
         color: white;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 700;
     }
     .reason-box {
@@ -63,6 +63,21 @@ st.markdown("""
         border-radius: 10px;
         color: #e5e7eb;
         margin-bottom: 10px;
+    }
+    .stage-wrap {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .stage-box {
+        flex: 1;
+        text-align: center;
+        padding: 14px;
+        border-radius: 14px;
+        font-weight: 800;
+        border: 1px solid #334155;
+        background-color: #0f172a;
+        color: #94a3b8;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -117,7 +132,28 @@ else:
 
     state_color = result["color"]
 
-    left, right = st.columns([1.2, 2])
+    if result["state"] == "HEALTHY":
+        healthy_style = "background:#14532d;color:white;"
+        aging_style = ""
+        failure_style = ""
+    elif result["state"] == "AGING":
+        healthy_style = ""
+        aging_style = "background:#92400e;color:white;"
+        failure_style = ""
+    else:
+        healthy_style = ""
+        aging_style = ""
+        failure_style = "background:#991b1b;color:white;"
+
+    st.markdown(f"""
+        <div class="stage-wrap">
+            <div class="stage-box" style="{healthy_style}">HEALTHY</div>
+            <div class="stage-box" style="{aging_style}">AGING</div>
+            <div class="stage-box" style="{failure_style}">FAILURE LIKELY</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    left, right = st.columns([1.15, 2])
 
     with left:
         st.markdown(
@@ -171,25 +207,32 @@ else:
         st.markdown('</div>', unsafe_allow_html=True)
 
     with right:
-        m1, m2, m3, m4 = st.columns(4)
+        m1, m2, m3, m4, m5 = st.columns(5)
         m1.markdown(
             f'<div class="panel"><div class="metric-label">Voltage</div><div class="metric-value">{latest["voltage"]} V</div></div>',
             unsafe_allow_html=True
         )
         m2.markdown(
-            f'<div class="panel"><div class="metric-label">Latency</div><div class="metric-value">{latest["latency"]} ms</div></div>',
+            f'<div class="panel"><div class="metric-label">Nominal Rail</div><div class="metric-value">3.30 V</div></div>',
             unsafe_allow_html=True
         )
         m3.markdown(
-            f'<div class="panel"><div class="metric-label">Retry Count</div><div class="metric-value">{latest["retry"]}</div></div>',
+            f'<div class="panel"><div class="metric-label">Latency</div><div class="metric-value">{latest["latency"]} ms</div></div>',
             unsafe_allow_html=True
         )
         m4.markdown(
+            f'<div class="panel"><div class="metric-label">Retry Count</div><div class="metric-value">{latest["retry"]}</div></div>',
+            unsafe_allow_html=True
+        )
+        m5.markdown(
             f'<div class="panel"><div class="metric-label">BOD Count</div><div class="metric-value">{latest["bod"]}</div></div>',
             unsafe_allow_html=True
         )
 
         fig_v = px.line(df, x="time", y="voltage", title="Voltage Trend")
+        fig_v.add_hline(y=3.30, line_dash="dash", line_color="green", annotation_text="Nominal 3.3V")
+        fig_v.add_hline(y=3.15, line_dash="dot", line_color="orange", annotation_text="Aging threshold")
+        fig_v.add_hline(y=3.05, line_dash="dot", line_color="red", annotation_text="Critical threshold")
         fig_v.update_layout(
             paper_bgcolor="#111827",
             plot_bgcolor="#111827",
@@ -207,30 +250,44 @@ else:
         )
         st.plotly_chart(fig_l, use_container_width=True)
 
-        bottom1, bottom2 = st.columns(2)
+        bottom1, bottom2, bottom3 = st.columns(3)
 
         with bottom1:
+            fig_t = px.line(df, x="time", y="temp", title="Temperature Trend")
+            fig_t.update_layout(
+                paper_bgcolor="#111827",
+                plot_bgcolor="#111827",
+                font=dict(color="white"),
+                height=220
+            )
+            st.plotly_chart(fig_t, use_container_width=True)
+
+        with bottom2:
             fig_r = px.line(df, x="time", y="retry", title="Retry Trend")
             fig_r.update_layout(
                 paper_bgcolor="#111827",
                 plot_bgcolor="#111827",
                 font=dict(color="white"),
-                height=240
+                height=220
             )
             st.plotly_chart(fig_r, use_container_width=True)
 
-        with bottom2:
+        with bottom3:
             fig_b = px.line(df, x="time", y="bod", title="BOD Warning Trend")
             fig_b.update_layout(
                 paper_bgcolor="#111827",
                 plot_bgcolor="#111827",
                 font=dict(color="white"),
-                height=240
+                height=220
             )
             st.plotly_chart(fig_b, use_container_width=True)
 
         with st.expander("Show latest telemetry table"):
             st.dataframe(df.tail(12), use_container_width=True)
+
+    if latest["voltage"] <= 2.95 and latest["latency"] >= 120:
+        st.session_state.running = False
+        st.warning("Demo reached final degradation stage and stopped automatically.")
 
 if st.session_state.running:
     time.sleep(1)
